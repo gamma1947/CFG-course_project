@@ -51,7 +51,7 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
     Reading Fasta
     """
 
-    fasta_file = Path(f"/home/photon/CFG-course_project/fasta_outputs/{tsv_file.stem}.fa")
+    fasta_file = Path(f"/fasta_outputs/{tsv_file.stem}.fa")
 
     seq_dict = dict()
 
@@ -194,7 +194,7 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
 
         # Save and Close
         plt.tight_layout()
-        output_file = Path(f"/home/photon/CFG-course_project/metrics_plot_{m}_{tsv_file.stem}_{tf_name}_fold_{i}.png")
+        output_file = Path(f"/plots/metrics_plot_{m}_{tsv_file.stem}_{tf_name}_fold_{i}.png")
         plt.savefig(output_file, dpi=300)
         print(f"Combined plot saved to {output_file}")
         plt.close()
@@ -204,13 +204,13 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
         log_dict['fold_idx'].append(f"{i}/{k}")
         log_dict['start_time'].append(start_time.time())
         log_dict['stop_time'].append(end_time.time())
-        log_dict['time_elapsed'].append(t)
-        log_dict['AOC-ROC'].append(roc_auc)
-        log_dict['AOC-PR'].append(pr_auc)
+        log_dict['time_elapsed'].append(round(t, 3))
+        log_dict['AOC-ROC'].append(round(roc_auc, 3))
+        log_dict['AOC-PR'].append(round(pr_auc, 3))
         _,peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
         module_memory = tracemalloc.get_tracemalloc_memory()
-        log_dict['memory_used (MB)'].append((peak-module_memory)*1e-6)
+        log_dict['memory_used (MB)'].append((peak-module_memory)/(1024**2))
     return log_dict
     # return roc_auc, pr_auc
 
