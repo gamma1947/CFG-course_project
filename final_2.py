@@ -84,6 +84,9 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
     B_split = np.array_split(B_idx, k)        
 
     log_dict = {
+                'chrm':[],
+                'TF':[],
+                'order':[],
                 'fold_idx':[],
                 'start_time':[],
                 'stop_time':[],
@@ -195,8 +198,9 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
         plt.savefig(output_file, dpi=300)
         print(f"Combined plot saved to {output_file}")
         plt.close()
-        
-        
+        log_dict['chrm'].append(tsv_file.stem[:4])
+        log_dict['order'].append(m)
+        log_dict['TF'].append(tf_name)
         log_dict['fold_idx'].append(f"{i}/{k}")
         log_dict['start_time'].append(start_time.time())
         log_dict['stop_time'].append(end_time.time())
@@ -224,8 +228,8 @@ def main():
         tf = args.TF
         print(f"Running with: Order={m}, K={k}, TF={tf}, File={tsv_file.name}")
         a = the_ultimate_function(tsv_file, tf, m, k)
-        df = pd.DataFrame(a)
-        df.to_csv(f"/home/photon/CFG-course_project/log_m_{m}_k_{k}_{tf}.txt", sep = '\t', header = True)
+        print(a)
+        # df.to_csv(f"/home/photon/CFG-course_project/log_m_{m}_k_{k}_{tf}.txt", sep = '\t', header = True)
 # the know-how to write the code block below was learnt from the internet reading various articles and using Gemini to understand some parts
 if __name__ == '__main__':
     # try:
