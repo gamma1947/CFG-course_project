@@ -1,14 +1,20 @@
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 from pathlib import Path
 import argparse 
 import tqdm as tqdm
 import matplotlib.pyplot as plt
 import sklearn.metrics as met
 from functions import *
+import time
+import tracemalloc
+import pandas as pd
+from datetime import datetime
 
+np.random.seed(42)
 
 def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
-    
     tsv_file = Path(tsv_path)
 
     TF_indexes = [3,4,5,6]
@@ -72,18 +78,24 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
 
     U_idx = binding_info_dict['U']
     B_idx = binding_info_dict['B']
-
-    # lets split the lists to k equal parts
-    # if k == 1:
-    #     U_split = U_idx
-    #     B_split = B_idx
-    # else:
+    np.random.shuffle(U_idx)
+    np.random.shuffle(B_idx)
     U_split = np.array_split(U_idx, k)
     B_split = np.array_split(B_idx, k)        
 
-
+    log_dict = {
+                'fold_idx':[],
+                'start_time':[],
+                'stop_time':[],
+                'time_elapsed':[],
+                'AOC-ROC':[],
+                'AOC-PR':[],
+                'memory_used (MB)':[]
+                }
     for i in tqdm.tqdm(range(k)):
-    # i = 0
+        tracemalloc.start()
+        tic = time.perf_counter()
+        start_time = datetime.now()
         train_indices = [j for j in range(k) if j != i]
         # print(train_indices)
         train_block_pos = set(np.concatenate([B_split[l] for l in train_indices]))
@@ -99,17 +111,19 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
 
         # training part
         tqdm.tqdm.write(f"training started for fold-{i}")
-        for seq_idx in tqdm.tqdm(seq_dict):
+        # for seq_idx in tqdm.tqdm():
+        
+        for seq_idx in tqdm.tqdm(train_block_pos):
+            # print(True)
             sequence = seq_dict[seq_idx]
-            if seq_idx in train_block_pos:
-                # print(True)
-                populate_dict(string_freq1_pos, sequence, m, pseudocount)
-                populate_dict(string_freq2_pos, sequence, m-1, pseudocount)
-            elif seq_idx in train_block_neg:
-                # print(True)
-                # print(seq_idx, sequence)
-                populate_dict(string_freq1_neg, sequence, m, pseudocount)
-                populate_dict(string_freq2_neg, sequence, m-1, pseudocount)        
+            populate_dict(string_freq1_pos, sequence, m, pseudocount)
+            populate_dict(string_freq2_pos, sequence, m-1, pseudocount)
+        for seq_idx in tqdm.tqdm(train_block_neg):
+            # print(True)
+            # print(seq_idx, sequence)
+            sequence = seq_dict[seq_idx]
+            populate_dict(string_freq1_neg, sequence, m, pseudocount)
+            populate_dict(string_freq2_neg, sequence, m-1, pseudocount)        
         tm_pos = markov_model(string_freq1_pos, string_freq2_pos, chars)
         tm_neg = markov_model(string_freq1_neg, string_freq2_neg, chars)
         # print(tm_pos)
@@ -121,31 +135,35 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
         # ll_neg_bits = []
         seq_len = len(sequence)
 
-        for idx, seq in tqdm.tqdm(seq_dict.items()):
+        # for idx, seq in tqdm.tqdm(seq_dict.items()):
             # sequence_2 = seq_dict[idx]
-            if idx in test_block_pos or idx in test_block_neg:
-                ll_pos = log_likelihood(tm_pos, string_freq2_pos, chars, seq, m)
-                # ll_pos_bits.append(ll_pos/seq_len)
-                ll_neg = log_likelihood(tm_neg, string_freq2_neg, chars, seq, m)
-                # ll_neg_bits.append(ll_neg/seq_len)
-                score = float(ll_pos) - float(ll_neg)
-                # print(score)
-                log_likelihood_scores.append(score)
+        for idx in tqdm.tqdm(test_block_pos | test_block_neg):
+            seq = seq_dict[idx]
+            ll_pos = log_likelihood(tm_pos, string_freq2_pos, chars, seq, m)
+            # ll_pos_bits.append(ll_pos/seq_len)
+            ll_neg = log_likelihood(tm_neg, string_freq2_neg, chars, seq, m)
+            # ll_neg_bits.append(ll_neg/seq_len)
+            score = float(ll_pos) - float(ll_neg)
+            # print(score)
+            log_likelihood_scores.append(score)
 
-                if idx in test_block_pos:
-                    y_true.append(1)
-                else:
-                    y_true.append(0)
+            if idx in test_block_pos:
+                y_true.append(1)
+            else:
+                y_true.append(0)
 
         # print(log_likelihood_scores)
 
         fpr, tpr, thresholds = met.roc_curve(y_true, log_likelihood_scores)
         roc_auc = met.roc_auc_score(y_true, log_likelihood_scores)
-
         precision, recall, thresholds = met.precision_recall_curve(y_true, log_likelihood_scores)
         pr_auc = met.average_precision_score(y_true, log_likelihood_scores)
         tqdm.tqdm.write(f"Area Under Curve (AUC): {roc_auc:.4f}")
         tqdm.tqdm.write(f"AUC-PR (Average Precision): {pr_auc:.4f}")
+        toc = time.perf_counter()
+        end_time = datetime.now()
+        t = toc - tic
+        print('time taken to calculate auc-roc and auc-pr', t, "in seconds")
         baseline = sum(y_true) / len(y_true)
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
@@ -173,15 +191,26 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
 
         # Save and Close
         plt.tight_layout()
-        output_file = Path(f"/home/photon/CFG-course_project/metrics_plot_{tsv_file.stem}_{tf_name}_fold_{i}.png")
+        output_file = Path(f"/home/photon/CFG-course_project/metrics_plot_{m}_{tsv_file.stem}_{tf_name}_fold_{i}.png")
         plt.savefig(output_file, dpi=300)
         print(f"Combined plot saved to {output_file}")
         plt.close()
+        
+        
+        log_dict['fold_idx'].append(f"{i}/{k}")
+        log_dict['start_time'].append(start_time.time())
+        log_dict['stop_time'].append(end_time.time())
+        log_dict['time_elapsed'].append(t)
+        log_dict['AOC-ROC'].append(roc_auc)
+        log_dict['AOC-PR'].append(pr_auc)
+        _,peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        module_memory = tracemalloc.get_tracemalloc_memory()
+        log_dict['memory_used (MB)'].append((peak-module_memory)*1e-6)
+    return log_dict
     # return roc_auc, pr_auc
 
-# the know-how to write the code block below was learnt from the internet reading various articles and using Gemini to understand some parts
-if __name__ == '__main__':
-    try:
+def main():
         parser = argparse.ArgumentParser(description="Markov Model Cross Validation")
         parser.add_argument('--order', type = int, default=1, help="Order of the Markov model(m)")
         parser.add_argument('--k', type = int, default=3, help = "k-value")
@@ -194,10 +223,14 @@ if __name__ == '__main__':
         tsv_file = Path(args.input)
         tf = args.TF
         print(f"Running with: Order={m}, K={k}, TF={tf}, File={tsv_file.name}")
-        the_ultimate_function(tsv_file, tf, m, k)
-        # print("AUC-ROC:", a)
-        # print("AUC-PR:", b)
-    except Exception as e:
-        print("An error occured:", e)
-        import traceback
-        traceback.print_exc
+        a = the_ultimate_function(tsv_file, tf, m, k)
+        df = pd.DataFrame(a)
+        df.to_csv(f"/home/photon/CFG-course_project/log_m_{m}_k_{k}_{tf}.txt", sep = '\t', header = True)
+# the know-how to write the code block below was learnt from the internet reading various articles and using Gemini to understand some parts
+if __name__ == '__main__':
+    # try:
+    main()
+    # except Exception as e:
+    #     print("An error occured:", e)
+    #     import traceback
+    #     traceback.print_exc
