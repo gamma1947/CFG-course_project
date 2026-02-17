@@ -51,7 +51,7 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
     Reading Fasta
     """
 
-    fasta_file = Path(f"/fasta_outputs/{tsv_file.stem}.fa")
+    fasta_file = Path(f"./fasta_outputs/{tsv_file.stem}.fa")
 
     seq_dict = dict()
 
@@ -194,7 +194,7 @@ def the_ultimate_function(tsv_path, tf_name, m = 1, k = 3):
 
         # Save and Close
         plt.tight_layout()
-        output_file = Path(f"/plots/metrics_plot_{m}_{tsv_file.stem}_{tf_name}_fold_{i}.png")
+        output_file = Path(f"./plots/metrics_plot_{m}_{tsv_file.stem}_{tf_name}_fold_{i}.png")
         plt.savefig(output_file, dpi=300)
         print(f"Combined plot saved to {output_file}")
         plt.close()
